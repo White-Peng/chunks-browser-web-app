@@ -6,7 +6,7 @@
 // Configuration
 const CONFIG = {
   // Web App URL - change this to your deployed URL
-  webAppUrl: 'https://chunks-browser-web-app.vercel.app',
+  webAppUrl: 'https://chunks-browser-web-app.vercel.app/',
   // Fallback to localhost for development
   devUrl: 'http://localhost:5173',
   // Storage key for passing data
@@ -198,12 +198,27 @@ async function sendToChunks() {
     // Wait for the tab to load, then inject data via content script
     await waitForTabLoad(tab.id);
     
-    // Inject the data using scripting API
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: injectHistoryData,
-      args: [data]
-    });
+    // Inject the data using scripting API (try multiple times)
+    let injected = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: injectHistoryData,
+          args: [data]
+        });
+        injected = true;
+        console.log(`Data injected successfully on attempt ${attempt + 1}`);
+        break;
+      } catch (e) {
+        console.log(`Injection attempt ${attempt + 1} failed:`, e);
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+    
+    if (!injected) {
+      throw new Error('Failed to inject data after 3 attempts');
+    }
     
     showStatus('✓ Sent! Opening Chunks App...', 'success');
     
@@ -227,8 +242,8 @@ function waitForTabLoad(tabId) {
     const listener = (id, changeInfo) => {
       if (id === tabId && changeInfo.status === 'complete') {
         chrome.tabs.onUpdated.removeListener(listener);
-        // Additional delay to ensure React is mounted
-        setTimeout(resolve, 500);
+        // Wait longer for React to mount and hydrate
+        setTimeout(resolve, 1500);
       }
     };
     chrome.tabs.onUpdated.addListener(listener);

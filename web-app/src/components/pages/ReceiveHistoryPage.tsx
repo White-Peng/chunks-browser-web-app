@@ -72,25 +72,51 @@ export function ReceiveHistoryPage() {
   const loadExtensionData = async () => {
     setStatus('loading');
     
-    // Try multiple methods to get data from extension
+    // Poll for data multiple times (extension might inject data after page load)
+    const maxAttempts = 20; // 20 attempts
+    const pollInterval = 500; // 500ms between attempts
+    let attempts = 0;
     
-    // Method 1: Check localStorage (extension might have written here)
-    const localData = localStorage.getItem(EXTENSION_STORAGE_KEY);
-    if (localData) {
-      try {
-        const parsed: ExtensionData = JSON.parse(localData);
-        handleReceivedData(parsed);
-        // Clear after reading
-        localStorage.removeItem(EXTENSION_STORAGE_KEY);
-        return;
-      } catch (e) {
-        console.error('Failed to parse localStorage data:', e);
+    const checkForData = (): boolean => {
+      const localData = localStorage.getItem(EXTENSION_STORAGE_KEY);
+      if (localData) {
+        try {
+          const parsed: ExtensionData = JSON.parse(localData);
+          handleReceivedData(parsed);
+          // Clear after reading
+          localStorage.removeItem(EXTENSION_STORAGE_KEY);
+          return true;
+        } catch (e) {
+          console.error('Failed to parse localStorage data:', e);
+        }
       }
-    }
+      return false;
+    };
     
-    // Method 2: Try to receive via postMessage from extension
+    // First immediate check
+    if (checkForData()) return;
+    
+    // Set up polling
+    const pollTimer = setInterval(() => {
+      attempts++;
+      console.log(`Polling for extension data, attempt ${attempts}/${maxAttempts}`);
+      
+      if (checkForData()) {
+        clearInterval(pollTimer);
+        return;
+      }
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(pollTimer);
+        setError('Could not receive data from extension. You can manually add URLs instead.');
+        setStatus('error');
+      }
+    }, pollInterval);
+    
+    // Also listen for postMessage from extension
     const messageHandler = (event: MessageEvent) => {
       if (event.data && event.data.type === 'CHUNKS_HISTORY_DATA') {
+        clearInterval(pollTimer);
         handleReceivedData(event.data.payload);
         window.removeEventListener('message', messageHandler);
       }
@@ -100,16 +126,11 @@ export function ReceiveHistoryPage() {
     // Broadcast that we're ready to receive
     window.postMessage({ type: 'CHUNKS_READY_TO_RECEIVE' }, '*');
     
-    // Wait for data with timeout
-    setTimeout(() => {
+    // Cleanup on unmount
+    return () => {
+      clearInterval(pollTimer);
       window.removeEventListener('message', messageHandler);
-      
-      // If still loading, show manual entry option
-      if (status === 'loading') {
-        setError('Could not receive data from extension. You can manually add URLs instead.');
-        setStatus('error');
-      }
-    }, 3000);
+    };
   };
 
   const checkLocalStorage = () => {
