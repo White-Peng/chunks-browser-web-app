@@ -184,41 +184,22 @@ async function sendToChunks() {
       }
     };
     
+    console.log('Saving data to chrome.storage.local...');
+    console.log('URLs count:', data.urls.length);
+    
     // Store data in chrome.storage.local
+    // The content script will automatically read this and transfer to localStorage
     await chrome.storage.local.set({ [CONFIG.storageKey]: data });
     
-    // Open the web app
-    const webAppUrl = `${CONFIG.webAppUrl}/#/receive?source=extension&count=${state.filteredUrls.length}`;
+    console.log('Data saved to chrome.storage.local');
+    
+    // Open the web app - the content script will handle data transfer
+    const webAppUrl = `${CONFIG.webAppUrl}#/receive?source=extension&count=${state.filteredUrls.length}`;
+    
+    console.log('Opening:', webAppUrl);
     
     // Create a new tab
-    const tab = await chrome.tabs.create({ url: webAppUrl });
-    
-    showStatus('Opening Chunks App...', 'info');
-    
-    // Wait for the tab to load, then inject data via content script
-    await waitForTabLoad(tab.id);
-    
-    // Inject the data using scripting API (try multiple times)
-    let injected = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: injectHistoryData,
-          args: [data]
-        });
-        injected = true;
-        console.log(`Data injected successfully on attempt ${attempt + 1}`);
-        break;
-      } catch (e) {
-        console.log(`Injection attempt ${attempt + 1} failed:`, e);
-        await new Promise(r => setTimeout(r, 500));
-      }
-    }
-    
-    if (!injected) {
-      throw new Error('Failed to inject data after 3 attempts');
-    }
+    await chrome.tabs.create({ url: webAppUrl });
     
     showStatus('✓ Sent! Opening Chunks App...', 'success');
     
@@ -232,44 +213,6 @@ async function sendToChunks() {
     showStatus('Failed to send: ' + error.message, 'error');
     elements.sendBtn.disabled = false;
   }
-}
-
-/**
- * Wait for tab to finish loading
- */
-function waitForTabLoad(tabId) {
-  return new Promise((resolve) => {
-    const listener = (id, changeInfo) => {
-      if (id === tabId && changeInfo.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        // Wait longer for React to mount and hydrate
-        setTimeout(resolve, 1500);
-      }
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-    
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve();
-    }, 10000);
-  });
-}
-
-/**
- * Function to be injected into the web app page
- */
-function injectHistoryData(data) {
-  // Store in localStorage
-  localStorage.setItem('chunks_browsing_history', JSON.stringify(data));
-  
-  // Dispatch custom event
-  window.dispatchEvent(new CustomEvent('chunks-history-received', {
-    detail: data
-  }));
-  
-  // Also try postMessage
-  window.postMessage({ type: 'CHUNKS_HISTORY_DATA', payload: data }, '*');
 }
 
 /**
