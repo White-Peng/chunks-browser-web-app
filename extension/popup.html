@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chunks - Send History</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-circle"></div>
+        <h1>Chunks</h1>
+      </div>
+      <p class="subtitle">Transform your browsing history into personalized learning stories</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats" id="stats">
+      <div class="stat-item">
+        <span class="stat-value" id="totalCount">--</span>
+        <span class="stat-label">Total URLs</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="filteredCount">--</span>
+        <span class="stat-label">After Filter</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value" id="removedCount">--</span>
+        <span class="stat-label">Removed</span>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview" id="preview">
+      <h3>Recent URLs to be sent:</h3>
+      <div class="url-list" id="urlList">
+        <div class="loading-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Time Range -->
+    <div class="time-range">
+      <label for="timeRange">Time Range:</label>
+      <select id="timeRange">
+        <option value="1">Last 24 hours</option>
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 3 months</option>
+        <option value="all">All time</option>
+      </select>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button id="sendBtn" class="btn primary" disabled>
+        <span class="btn-icon">🚀</span>
+        <span class="btn-text">Send to Chunks App</span>
+      </button>
+      <button id="refreshBtn" class="btn secondary">
+        <span class="btn-icon">🔄</span>
+        <span class="btn-text">Refresh</span>
+      </button>
+    </div>
+
+    <!-- Status Message -->
+    <div class="status" id="status"></div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>URLs from social media, search engines, and login pages are automatically filtered.</p>
+    </div>
+  </div>
+
+  <script src="blacklist.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
+

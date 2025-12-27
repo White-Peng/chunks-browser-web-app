@@ -1,0 +1,30 @@
+{
+  "name": "Chunks - Browsing History to Stories",
+  "description": "Send your browsing history to Chunks Web App for personalized learning stories",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": [
+    "history",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://chunks-browser-web-app.vercel.app/*",
+    "http://localhost:5173/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chunks-browser-web-app.vercel.app/*",
+        "http://localhost:5173/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
+
