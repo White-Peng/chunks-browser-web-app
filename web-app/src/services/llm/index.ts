@@ -4,28 +4,31 @@ import { sendToDeepseek } from './deepseek';
 export class LLMService {
   /**
    * Generate Stories from browsing history URLs
+   * Limits to 50 URLs to avoid response truncation
    */
   async generateStories(urls: string[]): Promise<string> {
-    const systemPrompt = `You are a content curator. Based on browsing history URLs, group them into 3-5 thematic stories that represent the user's interests.`;
+    // Limit URLs to prevent response truncation
+    const MAX_URLS = 50;
+    const limitedUrls = urls.slice(0, MAX_URLS);
+    const totalUrls = urls.length;
+    
+    const systemPrompt = `You are a content curator. Based on browsing history URLs, group them into 3-5 thematic stories that represent the user's interests. Keep your response concise.`;
     
     const userPrompt = `Based on the following browsing history URLs, group them into 3-5 thematic stories.
+${totalUrls > MAX_URLS ? `(Showing ${MAX_URLS} of ${totalUrls} URLs for analysis)` : ''}
 
 For each story, provide:
 - id: A unique number (1, 2, 3, etc.)
-- title: A catchy, engaging title (max 50 characters)
-- description: Brief description of the theme (max 100 characters)
-- imageKeywords: 2-4 specific English keywords for Unsplash image search that visually represent this story. Be specific and descriptive. Examples:
-  - For AI topic: "futuristic robot artificial intelligence"
-  - For cooking: "gourmet food kitchen preparation"
-  - For travel: "scenic mountain landscape adventure"
-  - For tech startup: "modern office technology workspace"
-- relatedUrls: Array of URLs from the input that belong to this theme
+- title: A catchy title (max 40 characters)
+- description: Brief description (max 80 characters)
+- imageKeywords: 2-3 English keywords for image search
+- relatedUrls: Array of 2-5 most relevant URLs from input
 
 URLs to analyze:
-${urls.map((url, i) => `${i + 1}. ${url}`).join('\n')}
+${limitedUrls.map((url, i) => `${i + 1}. ${url}`).join('\n')}
 
-IMPORTANT: Respond ONLY with valid JSON array, no markdown formatting, no code blocks. Example:
-[{"id":1,"title":"Tech Innovations","description":"Latest in technology","imageKeywords":"futuristic technology innovation circuit","relatedUrls":["url1","url2"]}]`;
+CRITICAL: Respond with ONLY a valid JSON array. No markdown, no explanation, no code blocks.
+Format: [{"id":1,"title":"Title","description":"Desc","imageKeywords":"keyword1 keyword2","relatedUrls":["url1"]}]`;
 
     return sendToDeepseek([
       { role: 'system', content: systemPrompt },

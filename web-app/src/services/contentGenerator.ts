@@ -2,7 +2,7 @@ import type { Story, Chunk } from '@/types';
 import { LLMService } from './llm';
 import { getCachedPhotoUrl, getFallbackImage } from './unsplash';
 
-// Parse JSON from LLM response (handles markdown code blocks)
+// Parse JSON from LLM response (handles markdown code blocks and truncated responses)
 function parseJSON<T>(response: string): T {
   let cleaned = response.trim();
   
@@ -11,7 +11,87 @@ function parseJSON<T>(response: string): T {
     cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
   }
   
+  // Remove any trailing text after the JSON array
+  const lastBracket = cleaned.lastIndexOf(']');
+  if (lastBracket !== -1 && lastBracket < cleaned.length - 1) {
+    cleaned = cleaned.substring(0, lastBracket + 1);
+  }
+  
+  // Try to parse as-is first
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.warn('Initial JSON parse failed, attempting repair...');
+  }
+  
+  // Try to repair truncated JSON
+  cleaned = repairTruncatedJSON(cleaned);
+  
   return JSON.parse(cleaned);
+}
+
+// Attempt to repair truncated JSON array
+function repairTruncatedJSON(json: string): string {
+  let repaired = json.trim();
+  
+  // Ensure it starts with [
+  if (!repaired.startsWith('[')) {
+    const arrayStart = repaired.indexOf('[');
+    if (arrayStart !== -1) {
+      repaired = repaired.substring(arrayStart);
+    } else {
+      repaired = '[' + repaired;
+    }
+  }
+  
+  // Count brackets and braces
+  let bracketCount = 0;
+  let braceCount = 0;
+  let inString = false;
+  let lastGoodIndex = 0;
+  
+  for (let i = 0; i < repaired.length; i++) {
+    const char = repaired[i];
+    const prevChar = i > 0 ? repaired[i - 1] : '';
+    
+    if (char === '"' && prevChar !== '\\') {
+      inString = !inString;
+    }
+    
+    if (!inString) {
+      if (char === '[') bracketCount++;
+      if (char === ']') bracketCount--;
+      if (char === '{') braceCount++;
+      if (char === '}') {
+        braceCount--;
+        if (braceCount === 0 && bracketCount === 1) {
+          lastGoodIndex = i;
+        }
+      }
+    }
+  }
+  
+  // If we have unclosed structures, try to close them
+  if (braceCount > 0 || bracketCount > 0) {
+    // Truncate to last complete object
+    if (lastGoodIndex > 0) {
+      repaired = repaired.substring(0, lastGoodIndex + 1);
+    }
+    
+    // Close any remaining open structures
+    while (braceCount > 0) {
+      repaired += '}';
+      braceCount--;
+    }
+    
+    // Ensure array is closed
+    if (!repaired.endsWith(']')) {
+      repaired += ']';
+    }
+  }
+  
+  console.log('Repaired JSON:', repaired.substring(0, 200) + '...');
+  return repaired;
 }
 
 /**
